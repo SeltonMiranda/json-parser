@@ -1,20 +1,12 @@
 #include <stdio.h>
 
-#define __STRING_VIEW_IMPLEMENTATION__
-#include "StringView.h"
-
-#define __VECTOR_IMPLEMENTATION__
-#include "Vector.h"
-
-#define __HASH_MAP_IMPLEMENTATION__
-#include "HashMap.h"
+#include "uds.h"
 
 #define COLOR_RESET   "\x1b[0m"
 #define COLOR_YELLOW  "\x1b[33m"
 #define COLOR_BLUE    "\x1b[34m"
 #define COLOR_RED     "\x1b[31m"
 #define COLOR_GREEN   "\x1b[32m"
-
 
 typedef enum {
   JSON_TOKEN_CURLY_LBRACE,
@@ -33,7 +25,7 @@ typedef enum {
 
 typedef struct JSON_Token {
   JSON_TOKEN_TYPE type;
-  String_View literal;
+  Slice literal;
 } Json_token;
 
 void print_token(Json_token *token);
@@ -130,7 +122,7 @@ void skip_white_space(json_lexer *lexer)
     }
 }
 
-String_View read_string(json_lexer *lexer)
+Slice read_string(json_lexer *lexer)
 {
   size_t start = lexer->pos + 1;
   advance(lexer);
@@ -140,13 +132,13 @@ String_View read_string(json_lexer *lexer)
   }
 
   size_t len = lexer->pos - start;
-  String_View str = {
+  Slice str = {
       .data = lexer->content + start,
-      .size = len};
+      .length = len};
   return str;
 }
 
-String_View read_number(json_lexer *lexer)
+Slice read_number(json_lexer *lexer)
 {
   size_t start = lexer->pos;
   while (isdigit(lexer->ch) || lexer->ch == '.' || lexer->ch == '-') {
@@ -154,14 +146,14 @@ String_View read_number(json_lexer *lexer)
   }
 
   size_t len = lexer->pos - start;
-  String_View number = {
+  Slice number = {
       .data = lexer->content + start,
-      .size = len
+      .length = len
   };
   return number;
 }
 
-String_View read_keyword(json_lexer *lexer)
+Slice read_keyword(json_lexer *lexer)
 {
   size_t start = lexer->pos;
   while (isalpha(lexer->ch))
@@ -170,9 +162,9 @@ String_View read_keyword(json_lexer *lexer)
   }
 
   size_t len = lexer->pos - start;
-  String_View keyword = {
+  Slice keyword = {
       .data = lexer->content + start,
-      .size = len};
+      .length = len};
   return keyword;
 }
 
@@ -185,32 +177,32 @@ Json_token next_token(json_lexer *lexer)
   {
     case '{':
       token.type = JSON_TOKEN_CURLY_LBRACE;
-      token.literal = sv("{");
+      token.literal = _slice("{");
       advance(lexer);
       break;
     case '}':
       token.type = JSON_TOKEN_CURLY_RBRACE;
-      token.literal = sv("}");
+      token.literal = _slice("}");
       advance(lexer);
       break;
     case '[':
       token.type = JSON_TOKEN_SQUARE_LBRACE;
-      token.literal = sv("[");
+      token.literal = _slice("[");
       advance(lexer);
       break;
     case ']':
       token.type = JSON_TOKEN_SQUARE_RBRACE;
-      token.literal = sv("]");
+      token.literal = _slice("]");
       advance(lexer);
       break;
     case ',':
       token.type = JSON_TOKEN_COMMA;
-      token.literal = sv(",");
+      token.literal = _slice(",");
       advance(lexer);
       break;
     case ':':
       token.type = JSON_TOKEN_COLON;
-      token.literal = sv(":");
+      token.literal = _slice(":");
       advance(lexer);
       break;
     case '"':
@@ -220,7 +212,7 @@ Json_token next_token(json_lexer *lexer)
       break;
     case EOF:
       token.type = JSON_TOKEN_EOF;
-      token.literal = sv("EOF");
+      token.literal = _slice("EOF");
       advance(lexer);
       break;
     case '\n':
@@ -234,11 +226,11 @@ Json_token next_token(json_lexer *lexer)
           token.literal = read_number(lexer);
       } else if (isalpha(lexer->ch)) {
           token.literal = read_keyword(lexer);
-          if (sv_cmp(token.literal, sv("true")) || sv_cmp(token.literal, sv("false")))
+          if (slice_equals(token.literal, _slice("true")) || slice_equals(token.literal, _slice("false")))
           {
               token.type = JSON_TOKEN_BOOLEAN;
           }
-          else if (sv_cmp(token.literal, sv("null")))
+          else if (slice_equals(token.literal, _slice("null")))
           {
               token.type = JSON_TOKEN_NULL;
           }
@@ -250,10 +242,9 @@ Json_token next_token(json_lexer *lexer)
       else
       {
           token.type = JSON_TOKEN_INVALID;
-          token.literal = sv_null;
+          token.literal = slice_null;
       }
     }
-  //advance(lexer);
   return token;
 }
 
@@ -286,16 +277,22 @@ char *json_token_type_to_string(JSON_TOKEN_TYPE type)
         return "SQUARE_RBRACE";
     case JSON_TOKEN_STRING:
         return "STRING";
+    default:
+      return NULL;
     }
 }
 
 void print_token(Json_token *token)
 {
     char *type = json_token_type_to_string(token->type);
-    printf(COLOR_RED"############# DEBUG TOKEN INFO #############"COLOR_RESET"\n");
-    printf(COLOR_YELLOW "type: %s" COLOR_RESET " value: " COLOR_BLUE sv_fmt COLOR_RESET "\n", 
-           type, sv_args(token->literal));
-    printf(COLOR_RED"############################################"COLOR_RESET"\n\n");
+    //printf(COLOR_RED"############# DEBUG TOKEN INFO #############"COLOR_RESET"\n");
+    //printf(COLOR_YELLOW "type: %s" COLOR_RESET " value: " COLOR_BLUE slice_fmt COLOR_RESET "\n", 
+    //       type, slice_args(token->literal));
+    //printf(COLOR_RED"############################################"COLOR_RESET"\n\n");
+    printf("############# DEBUG TOKEN INFO #############""\n");
+    printf("type: %s"" value: "slice_fmt"\n", 
+           type, slice_args(token->literal));
+    printf("############################################""\n\n");
 }
 
 Json_token peek_token(json_lexer *lexer)
@@ -306,11 +303,10 @@ Json_token peek_token(json_lexer *lexer)
 
 int parse(json_parser *parser, Json_node *node);
 
-static int i = 0;
 
 int parse_object(json_parser *parser, Json_node *node)
 {
-  hm_init(node->map, compare_strings, hash_string);
+  hashmap_new(&node->map, compare_strings, hash_string);
   node->type = JSON_NODE_OBJECT;
 
   while (peek_token(&parser->lexer).type != JSON_TOKEN_CURLY_RBRACE) {
@@ -322,7 +318,7 @@ int parse_object(json_parser *parser, Json_node *node)
       return 0;
     }
 
-    if (!sv_to_owned(key.literal, &key_str)) {
+    if (!slice_to_owned(key.literal, &key_str)) {
       printf("ERROR! Couldn't allocate memory for key string\n");
       return 0;
     }
@@ -346,7 +342,7 @@ int parse_object(json_parser *parser, Json_node *node)
     }
     *value_ptr = value;
 
-    if (!hm_insert(node->map, key_str, value_ptr)) {
+    if (!hashmap_insert(&node->map, key_str, value_ptr)) {
       free(value_ptr);
       return 0;
     }
@@ -357,7 +353,8 @@ int parse_object(json_parser *parser, Json_node *node)
     } else if (peek.type == JSON_TOKEN_COMMA) {
       next_token(&parser->lexer); // Consume ","
     } else {
-      printf("ERROR! Expected token \",\" or \"}\", but got %s\n", json_token_type_to_string(peek.type));
+      printf("ERROR! Expected token \",\" (COMMA) or \"}\" (CURLY_RBRACE), but got %s\n", json_token_type_to_string(peek.type));
+      print_token(&peek);
       return 0;
     }
   }
@@ -368,7 +365,9 @@ int parse_object(json_parser *parser, Json_node *node)
 
 int parse_array(json_parser *parser, Json_node *node)
 {
-  node->array = vector_init(Json_node, 1);
+  if (!vector_new(&node->array, sizeof(Json_node), 1)) {
+    return 0;
+  }
   node->type = JSON_NODE_ARRAY;
 
   while (peek_token(&parser->lexer).type != JSON_TOKEN_SQUARE_RBRACE)
@@ -380,16 +379,14 @@ int parse_array(json_parser *parser, Json_node *node)
     }
 
     vector_push_back(&node->array, &value);
-
     Json_token peek = peek_token(&parser->lexer);
-
     if (peek.type == JSON_TOKEN_SQUARE_RBRACE) {
       break;
     } else if (peek.type == JSON_TOKEN_COMMA) {
-      next_token(&parser->lexer); // Consume "."
+      next_token(&parser->lexer); // Consume ","
     } else {
       printf("ERROR! Expected token \",\" or \"]\" but got %s\n", json_token_type_to_string(peek.type));
-      //print_token(&next);
+      print_token(&peek);
       return 0;
     }
   }
@@ -419,7 +416,7 @@ int parse(json_parser *parser, Json_node *node)
     case JSON_TOKEN_STRING:
       {
         node->type = JSON_NODE_STRING;
-        if (!sv_to_owned(token.literal, &node->string_value)) {
+        if (!slice_to_owned(token.literal, &node->string_value)) {
           printf("ERROR! Couldn't allocate memory for string\n");
           return 0;
         }
@@ -429,7 +426,7 @@ int parse(json_parser *parser, Json_node *node)
       {
         node->type = JSON_NODE_NUMBER;
         char *string_number;
-        if (!sv_to_owned(token.literal, &string_number)) {
+        if (!slice_to_owned(token.literal, &string_number)) {
           printf("ERROR! Couldn't allocate memory for string\n");
           return 0;
         }
@@ -440,7 +437,7 @@ int parse(json_parser *parser, Json_node *node)
     case JSON_TOKEN_BOOLEAN:
       {
         node->type = JSON_NODE_BOOLEAN;
-        node->bool_value = sv_cmp(token.literal, sv("true"));
+        node->bool_value = slice_equals(token.literal, _slice("true"));
       }
       break;
     case JSON_TOKEN_NULL:
@@ -448,6 +445,10 @@ int parse(json_parser *parser, Json_node *node)
         node->type = JSON_NODE_NULL;
       }
       break;
+    case JSON_TOKEN_EOF:
+      {
+        return 1;
+      }
     default:
       {
         printf("ERROR! Unexpected token while parsing\n");
@@ -459,8 +460,6 @@ int parse(json_parser *parser, Json_node *node)
   return 1;
 }
 
-//#define debug
-
 int json_parse(json_parser *parser, const char *file_path, Json_object *obj)
 {
   if (!json_load_file(&parser->lexer, file_path))
@@ -468,21 +467,12 @@ int json_parse(json_parser *parser, const char *file_path, Json_object *obj)
     return 0;
   }
 
-#ifdef debug
-  Json_token tok = next_token(&parser->lexer);
-  while (tok.type != JSON_TOKEN_EOF) {
-    print_token(&tok);
-    tok = next_token(&parser->lexer);
-  }
-  return 1;
-#else
   if (!parse(parser, &obj->root)) {
     return 0;
   }
 
   free(parser->lexer.content);
   return 1;
-#endif
 }
 
 void json_free(Json_node *node) 
@@ -491,9 +481,9 @@ void json_free(Json_node *node)
     case JSON_NODE_ARRAY:
       {
         for (size_t i = 0; i < node->array.size; i++) {
-          json_free(vector_get_at(&node->array, i));
+          json_free(vector_get_ref_at(&node->array, i));
         }
-        vector_destroy(&node->array);
+        vector_deallocate(&node->array);
       }
       break;
     case JSON_NODE_STRING:
@@ -503,7 +493,7 @@ void json_free(Json_node *node)
       break;
     case JSON_NODE_OBJECT:
       {
-        for (size_t i = 0; i < BUCKETS; i++) {
+        for (size_t i = 0; i < BUCKETS_SIZE; i++) {
           if (!node->map.buckets[i]) {
             continue;
           } else {
@@ -518,7 +508,7 @@ void json_free(Json_node *node)
             }
           }
         }
-        hm_free(node->map);
+        hashmap_deallocate(&node->map);
       }
       break;
     default:
@@ -531,21 +521,87 @@ void json_unload(Json_object *obj)
   json_free(&obj->root);
 }
 
+int json_search_key(Json_node* root, char* key, Json_node** value)
+{
+  if (!root || !key || !*key || !value) {
+    fprintf(stderr, "Error! Some parameter are missing\n");
+    return 0;
+  }
+
+  *value = (Json_node*)hashmap_search(&root->map, key);
+  if (*value == NULL) {
+    fprintf(stderr, "ERROR! key \"%s\" doesn't exist\n", key);
+    return 0;
+  }
+  return 1;
+}
+
+void json_print_value(Json_node* value)
+{
+  switch (value->type) {
+    case JSON_NODE_STRING: {
+      printf("%s", value->string_value);
+    }
+    break; 
+    case JSON_NODE_BOOLEAN: {
+      printf("%s", value->bool_value ? "true" : "false");
+    }
+    break;
+    case JSON_NODE_NULL: {
+      printf("NULL");
+    }
+    break;
+    case JSON_NODE_NUMBER: {
+      printf("%2.f\n", value->number_value);
+    }
+    break;
+    case JSON_NODE_ARRAY: {
+      for (size_t i = 0; i < value->array.size; i++) {
+        Json_node *n = vector_get_ref_at(&value->array, i);
+        json_print_value(n);
+        if (i != vector_get_size(&value->array) - 1) {
+          printf(" ");
+        }
+      }
+    }
+    break;
+    case JSON_NODE_OBJECT: {
+        for (size_t i = 0; i < BUCKETS_SIZE; i++) {
+          if (!value->map.buckets[i]) {
+            continue;
+          } else {
+            HashMapEntry *entry = value->map.buckets[i];
+            while (entry) {
+              HashMapEntry *temp = entry;
+              entry = entry->next;
+              Json_node *value = (Json_node *)temp->value;
+              printf("key: \"%s\" ", (char*)temp->key);
+              printf("value: \"");
+              json_print_value(value);
+              printf("\"");
+              printf("\n");
+            }
+          }
+        }
+      }
+    break;
+  }
+}
+
 int main()
 {
   json_parser parser = {0};
   Json_object object = {0};
-  if (!json_parse(&parser, "exemplo.json", &object)) {
+  Json_node* node;
+  if (!json_parse(&parser, "example2.json", &object)) {
     return 1;
   }
 
-  Json_node *node = (Json_node *)hm_search(object.root.map, "address");
-  if (node == NULL)
-  {
-    printf("nodo vazio\n");
+  if (!json_search_key(&object.root, "work", &node)) {
     return 1;
   }
-
+  json_print_value(node);
+  printf("\n");
   json_unload(&object);
   return 0;
 }

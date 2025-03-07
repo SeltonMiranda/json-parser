@@ -1,0 +1,63 @@
+{
+  "name": "John Doe",
+  "age": 30,
+  "email": "johndoe@example.com",
+  "phone": "+1-555-1234",
+  "isStudent": false,
+  "courses": [
+      {
+          "name": "Math",
+          "credits": 4,
+          "grade": "A"
+      },
+      {
+          "name": "Physics",
+          "credits": 3,
+          "grade": "B+"
+      },
+      {
+          "name": "Computer Science",
+          "credits": 5,
+          "grade": "A-"
+      }
+  ],
+  "address": {
+      "street": "123 Main St",
+      "city": "New York",
+      "state": "NY",
+      "zip": "10001",
+      "country": "USA"
+  },
+  "hobbies": ["reading", "gaming", "cycling"],
+  "work": {
+      "company": "TechCorp",
+      "position": "Software Engineer",
+      "years": 5,
+      "skills": ["C++", "Python", "Machine Learning"]
+  },
+  "social": {
+      "twitter": "@johndoe",
+      "linkedin": "linkedin.com/in/johndoe"
+  },
+  "preferences": {
+      "newsletter": true,
+      "theme": "dark",
+      "notifications": {
+          "email": true,
+          "sms": false,
+          "push": true
+      }
+  },
+  "family": [
+      {
+          "relation": "spouse",
+          "name": "Jane Doe",
+          "age": 28
+      },
+      {
+          "relation": "child",
+          "name": "Emily Doe",
+          "age": 3
+      }
+  ]
+}

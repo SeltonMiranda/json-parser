@@ -2,23 +2,20 @@ CC =gcc
 FLAGS=-Wall -Wextra -pedantic -g --std=c17
 MAIN=json_parser
 
-SOURCES=$(shell find -type f -name '*.c')
-OBJECTS=$(patsubst %.c, %.o, $(SOURCES))
 
 .PHONY: all clean recompile
 
 all: $(MAIN)
 
-$(MAIN): $(OBJECTS)
-	@echo "Compiling..."
-	$(CC) $(FLAGS) $^ -o $@ -lm
-	@echo "Done!"
+$(MAIN): main.o uds.o
+	gcc $^ -o $(MAIN) $(FLAGS)
 
-recompile:
-	@echo "Recompiling..."
-	rm -rf $(MAIN) *.o *.gch
-	@make all
-	@echo "Done!"
+
+main.o: main.c
+	gcc -c $< -o $@ $(FLAGS)
+
+uds.o: uds.c
+	gcc -c $< -o $@ $(FLAGS)
 
 clean:
 	@echo "Removing files"
